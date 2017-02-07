@@ -50,7 +50,7 @@ video#video {
 }
 
 .loading {
-    background: black;
+    background: #050505;
 }
 
 .loading p {
@@ -98,6 +98,10 @@ video#video {
     display: flex;
     align-items: center;
     justify-content: center;
+
+    background-size: 37%;
+    background-repeat: no-repeat;
+    background-position: 49% 72%;
 }
 
 .exited .row {
@@ -128,6 +132,22 @@ video#video {
     background-image: url('img/exit-close.svg');
 }
 
+.exited .exit-play {
+    background-image: url('img/play.svg');
+    background-size: 100%;
+    background-position: 0px -4px;
+    fill-opacity: .8;
+}
+
+.play-from-history {
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.play-from-history:hover {
+    color: #85b6f0;
+}
+
 .video-wrapper {
     background: #000;
     height: 100%;
@@ -149,7 +169,9 @@ video#video {
     width: 100%;
 }
 
-.controls a {
+.controls a,
+.player-controls a {
+    display: block;
     background-position: center center;
     background-repeat: no-repeat;
     cursor: pointer;
@@ -157,6 +179,7 @@ video#video {
     opacity: .7;
     text-decoration: none;
     width: 40px;
+    background-size: 50%;
 }
 
 .controls a:hover {
@@ -210,38 +233,53 @@ video#video {
     background: url('img/close.svg');
 }
 
-.volume {
-    border-radius: 5px;
-    cursor: pointer;
-    margin-left: -3px;
-    margin-top: 11px;
-    width: 75px;
+.open-queue {
+    background: url('img/open-menu.svg');
 }
 
-.volume::-moz-range-track {
+.volume {
+    background: #222;
+    opacity: .9;
+    border-radius: 2px;
+    width: 20px;
+    height: 75px;
+    position: absolute;
+    bottom: 30px;
+    left: 10px;
+}
+
+.volume input {
+    border-radius: 5px;
+    cursor: pointer;
+    height: 65px;
+    margin-top: 4px;
+    width: 6px;
+}
+
+.volume input::-moz-range-track {
     background: #eeeeeecc;
     border-radius: 5px;
     border: none;
-    height: 6px;
-    width: 75px;
+    height: 65px;
+    width: 5px;
 }
 
-.volume::-moz-range-progress {
+.volume input::-moz-range-progress {
     background: #4789d7;
     border-radius: 5px;
-    height: 6px;
+    width: 5px;
 }
 
-.volume::-moz-range-thumb {
+.volume input::-moz-range-thumb {
     background: white;
     border-radius: 50%;
     border: none;
-    height: 16px;
-    width: 16px;
+    height: 15px;
+    width: 15px;
 }
 
 /*hide the outline behind the border*/
-.volume:-moz-focusring {
+.volume input:-moz-focusring {
     outline: none;
 }
 
@@ -250,13 +288,10 @@ input[type=range]::-moz-focus-outer {
 }
 
 .progress {
-    background: linear-gradient(to top, rgba(0, 0, 0, .5) 0%, rgba(0, 0, 0, .33) 70%, transparent 100%);
-    bottom: 0;
     box-sizing: border-box;
-    flex-direction: column;
+
     height: 50px;
     padding-top: 6px;
-    position: absolute;
     width: 100%;
 }
 
@@ -314,4 +349,296 @@ input[type=range]::-moz-focus-outer {
 canvas {
     width: 100%;
     height: 100%;
+}
+
+
+
+
+/* asdjfldsfkl */
+
+#audio-container {
+    height: 100%;
+}
+
+#audio-container canvas {
+    position: static !important;
+}
+
+.queue {
+    
+}
+
+.queues {
+    width: 75%;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+
+    position: absolute;
+    right: 0;
+
+    background: #050505;
+    color: white;
+
+    box-shadow: inset -1px -10px 10px 0px rgba(50, 50, 50, 0.75);
+}
+
+.queue-headers > li {
+    display: inline-block;
+    margin: 0 25px 0 0px;
+    color: #878787;
+    cursor: pointer;
+}
+
+.queue-headers > li:hover {
+    color: white;
+}
+
+.queue-headers > li h3 {
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+    font-weight: 400;
+}
+
+.queue-headers > li.active h3 {
+    color: white;
+    border-bottom: 2px solid #4a90e2;
+}
+
+.queues ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.queues .panel-wrapper li {
+    display: flex;
+    flex-direction: row;
+    padding: 1px 2px;
+
+    width: 100%;
+}
+
+.queues .panel-wrapper li:first-child {
+    background: #363636;
+}
+
+.queues .panel-wrapper li:hover {
+    background: #4a4a4a;
+}
+
+.queues .panel-wrapper li h5 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 75%;
+    margin: 5px;
+    text-align: left;
+}
+
+.queue-item-domain {
+    font-size: 10px;
+    margin: 0px 10px 0px 5px;
+}
+
+.queue-item-info {
+    position: relative;
+    min-width: 200px;
+}
+
+.queue-item-remove {
+    background: url(./img/close.svg);
+    display: block;
+    background-position: center center;
+    background-repeat: no-repeat;
+    cursor: pointer;
+    height: 12px;
+    opacity: .7;
+    text-decoration: none;
+    width: 12px;
+    position: absolute;
+    right: 10px;
+    top: 12px;
+    background-size: contain;
+}
+
+.queue-item-remove:hover {
+    opacity: 1;
+}
+
+.queue-item-thumbnail {
+    width: 55px;
+    height: 40px;
+
+    padding: 0 3px;
+}
+
+.queue-item-left img,
+.queue-item-left p {
+    padding: 1px 5px;
+    margin: 0;
+    width: 10px;
+}
+
+.queue-item-thumbnail {
+    position: relative;
+}
+
+.queue-item-thumbnail div {
+    background-size: 70px;
+    background-position: 50%;
+
+    width: 50px;
+    height: 100%;
+}
+
+.queue-item-thumbnail .play {
+    display: block;
+    background-position: center center;
+    background-repeat: no-repeat;
+    cursor: pointer;
+    height: 15px;
+    width: 15px;
+    opacity: .9;
+    text-decoration: none;
+    background-size: contain;
+
+    position: absolute;
+    top: 33%;
+    left: 37%;
+}
+
+.queues li span {
+    font-size: 10px;
+    float: left;
+}
+
+.queue-item-left {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.queue-item-left .drag-handle {
+    position: absolute;
+    top: 2px;
+    left: 30%;
+    cursor: move;
+    background: url(./img/drag.svg);
+    background-repeat: no-repeat;
+    width: 14px;
+    height: 10px;
+    margin-left: -3px;
+}
+
+.panel-wrapper {
+    overflow-y: scroll;
+    overflow-x: hidden;
+    margin-right: -10px;
+    height: 75%;
+}
+
+.player-controls {
+    background: linear-gradient(to top, rgba(0, 0, 0, .5) 0%, rgba(0, 0, 0, .33) 70%, transparent 100%);
+
+    width: 100%;
+    height: 50px;
+    padding-top: 6px;
+    position: absolute;
+    bottom: 0;
+
+    display: flex;
+    flex-direction: row;
+}
+
+.sound-control a,
+.player-controls a {
+    align-items: center;
+    display: flex;
+    margin-top: 12px;
+}
+
+.sound-control {
+    position: relative;
+}
+
+.collapse-queue {
+    position: absolute;
+    top: 15px;
+    right: 10px;
+
+
+    display: block;
+
+    background: url(./img/close-menu.svg);    
+    background-size: contain;   
+    background-position: center center;
+    background-repeat: no-repeat;
+
+    cursor: pointer;
+
+    height: 20px;
+    width: 20px;
+
+    opacity: .7;
+    text-decoration: none;    
+}
+
+.collapse-queue:hover {
+    opacity: .9;
+}
+
+.ended-dialog {
+    color: white;
+}
+
+.ended-dialog p {
+    margin: 0;
+}
+
+.ended-dialog h4 {
+    margin: 5px;
+}
+
+.next-wrapper,
+.prev-wrapper {
+    position: absolute;
+
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+}
+
+.prev-wrapper {
+    left: 0;
+}
+
+.next-wrapper {
+    right: 0;
+}
+
+.prev-wrapper a {
+    background: url('img/prev.svg');
+}
+
+.next-wrapper a {
+    background: url('img/next.svg');
+}
+
+.next-wrapper a,
+.prev-wrapper a {
+    display: block;
+    background-position: center center;
+    background-repeat: no-repeat;
+    cursor: pointer;
+    height: 40px;
+    opacity: .7;
+    text-decoration: none;
+    width: 40px;
+    background-size: 50%;
+
+    background-repeat: no-repeat;
+    background-position: 50%;
 }
