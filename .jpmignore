@@ -15,3 +15,9 @@
 !/node_modules/get-src/index.js
 !/node_modules/testpilot-metrics/package.json
 !/node_modules/testpilot-metrics/testpilot-metrics.js
+!/node_modules/audio-metadata/package.json
+!/node_modules/audio-metadata/index.js
+!/node_modules/audio-metadata/src/id3v1.js
+!/node_modules/audio-metadata/src/id3v2.js
+!/node_modules/audio-metadata/src/ogg.js
+!/node_modules/audio-metadata/src/utils.js

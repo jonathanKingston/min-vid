@@ -1,93 +1,60 @@
 const React = require('react');
-const emitter = require('../client-lib/emitter');
-const PlayerControls = require('../components/player-controls');
-const ReplayView = require('../components/replay-view');
-const Progress = require('../components/progress');
+const cn = require('classnames');
+const keyboardJS = require('keyboardjs');
+const ReactPlayer = require('react-player');
+const ReactTooltip = require('react-tooltip');
 
-class Player extends React.Component {
+const AudioCtrl = require('../client-lib/audio-ctrl');
+const formatTime = require('../client-lib/format-time');
+const sendToAddon = require('../client-lib/send-to-addon');
+
+const Queues = require('./queues');
+const ErrorView = require('./error-view');
+const ReplayView = require('./replay-view');
+const PlayerControls = require('./player-controls');
+const GeneralControls = require('./general-controls');
+
+module.exports = class Player extends React.Component {
   constructor(props) {
     super(props);
-    this.state = {hovered: false};
+    this.state = {hovered: false, progress: 0, exited: false,
+                  time: '0:00 / 0:00', showQueue: false, historyIndex: 0};
+
+    if (this.props.queue[0].player === 'audio') this.loadAudio();
+    else this.ytConfig = {'playerVars':{'cc_load_policy': this.props.cc}};
   }
 
-  onLoaded(duration) {
-    clearTimeout(this.loadingTimeout);
-
-    // for YouTube we need to detect if the duration is 0 to see
-    // if there was a problem loading.
-    if ((this.props.player === 'youtube') && duration === 0) this.onError();
-
-    // here we store the muted prop before it gets set in the
-    // setVolume call so we can restore it afterwards.
-    const wasMuted = this.props.muted;
-
-    // set initial volume
-    emitter.emit('set-volume', {
-      value: this.props.volume
-    });
-
-    // set muted/unmuted (must be called before setVolume below)
-    if (wasMuted) {
-      emitter.emit('mute')
-    } else {
-      emitter.emit('unmute')
-    }
-
-    emitter.emit('load', {duration: duration});
+  componentDidMount() {
+    this.attachKeyboardShortcuts();
   }
 
   componentDidUpdate(prevProps, prevState) {
-    if (!this.props.src) return;
-    if (prevProps.src !== this.props.src) {
-      clearTimeout(this.loadingTimeout);
-      this.loadingTimeout = setTimeout(() => {
-        emitter.emit('error');
-      }, 20000); // 20 second timeout
-
-      if (this.props.player === 'audio') {
-        const canvas = this.refs['audio-vis'];
-        if (canvas) emitter.emit('init', {
-          src: this.props.src,
-          canvas: canvas,
-          visual: this.props.visual,
-          onLoaded: this.onLoaded.bind(this),
-          onError: this.onError.bind(this)
-        });
-      } else this.attachVideoListeners();
+    if (prevProps.queue[0].url !== this.props.queue[0].url) {
+      if (this.props.queue[0].player === 'audio') this.loadAudio();
     }
   }
 
   componentWillUnmount() {
+    if (this.audio) this.audio.remove();
+  }
+
+  loadAudio() {
     clearTimeout(this.loadingTimeout);
-    this.removeVideoListeners();
-  }
+    this.loadingTimeout = setTimeout(() => {
+      console.error('ERROR: loading timeout');
+    }, 20000);
 
-  attachVideoListeners() {
-    if (!this.props.src) return;
+    if (this.audio) this.audio.remove();
 
-    if (this.props.player === 'youtube') {
-      emitter.emit('init', {
-        onLoaded: this.onLoaded.bind(this)
-      });
-    } else {
-      emitter.emit('init', {
-        video: this.refs.video
-      });
-      this.refs.video.addEventListener('canplay', this.onLoaded.bind(this));
-      this.refs.video.addEventListener('durationchange', this.onLoaded.bind(this));
-      this.refs.video.addEventListener('error', this.onError.bind(this));
-    }
-  }
-
-  removeVideoListeners() {
-    this.refs.video.removeEventListener('canplay');
-    this.refs.video.removeEventListener('durationchange');
-    this.refs.video.removeEventListener('error');
-  }
-
-  onError() {
-    if (!this.props.src) return;
-    emitter.emit('error');
+    this.audio = new AudioCtrl(Object.assign({}, this.props, {
+      url: this.props.queue[0].url,
+      time: this.props.queue[0].time,
+      onError: this.onError.bind(this),
+      onLoaded: this.onLoaded.bind(this),
+      onEnded: this.onEnded.bind(this),
+      onProgress: this.onProgress.bind(this),
+      container: this.refs['audio-container']
+    }));
   }
 
   enterPlayer() {
@@ -99,51 +66,187 @@ class Player extends React.Component {
   }
 
   handleVideoClick(ev) {
-    if (this.props.exited) return;
-    if (!ev.target.classList.contains('video-wrapper') && (ev.target.id !== 'audio-vis')) return;
-    if (this.props.playing) emitter.emit('pause')
-    else emitter.emit('play')
+    // if (this.props.exited) return;
+    // if (!ev.target.classList.contains('video-wrapper') && (ev.target.id !== 'audio-vis')) return;
+    // if (this.props.playing) emitter.emit('pause')
+    // else emitter.emit('play')
   }
 
-  render() {
-    const noop = () => false;
+  onError() {
+    window.AppData.set({error: true});
+  }
 
-    const audioEl = this.props.player === 'audio' ?
-          (<canvas id='audio-vis' ref='audio-vis' onContextMenu={noop}
-                   onClick={this.handleVideoClick.bind(this)}/>) : null;
+  onEnded() {
+    if (this.props.queue.length === 1) {
+      window.AppData.set({exited: true});
+    } else sendToAddon({action: 'track-ended'});
+  }
 
-    const visualEl = audioEl ? audioEl :
-          (this.props.player === 'youtube') ?
-          (<iframe id='video-yt' ref='video' src={this.props.src} onContextMenu={noop} />) :
-          (<video id='video' ref='video' src={this.props.src} autoPlay={false}
-           onContextMenu={noop} muted={this.props.muted} />);
+  onLoaded(duration) {
+    clearTimeout(this.loadingTimeout);
+    window.AppData.set({loaded: true, exited: false});
+    if (duration) {
+      window.AppData.set({duration: duration});
+      this.onProgress({played: 0});
+    }
+  }
 
-    return (
-        <div className='video-wrapper'
-             onMouseEnter={this.enterPlayer.bind(this)}
-             onMouseLeave={this.leavePlayer.bind(this)}
-             onClick={this.handleVideoClick.bind(this)}>
+  onProgress(ev) {
+    this.setState({
+      progress: ev.played,
+      time: `${formatTime(window.AppData.duration * ev.played)} / ${formatTime(window.AppData.duration)}`
+    });
+  }
 
-          <PlayerControls {...this.props} hovered={this.state.hovered} />
+  setTime(ev) {
+    ev.stopPropagation();
+    const x = ev.pageX - ev.target.offsetLeft;
+    const clickedValue = x * ev.target.max / ev.target.offsetWidth;
+    // app-data needs to be required here instead of the top of the
+    // module in order to avoid a circular dependency
 
-          <ReplayView {...this.props} />
-          <Progress {...this.props} hovered={this.state.hovered} />
+    const nextTime = window.AppData.duration * clickedValue;
 
-          {visualEl}
-        </div>
-    );
+    if (this.audio) this.audio.time = nextTime;
+    window.AppData.set({currentTime: nextTime});
+    if (this.refs['player']) this.refs['player'].seekTo(clickedValue);
+  }
+
+  openQueueMenu() {
+    this.setState({showQueue: true});
+  }
+
+  closeQueueMenu() {
+    this.setState({showQueue: false});
+  }
+
+  prevTrack () {
+    let index;
+    // if clicked more than once within
+    // 5 seconds increment the index so
+    // the user can get to further back
+    // in history. Resets when timeout wears out.
+    if (this.searchingHistory) {
+      if (this.props.history.length > this.state.historyIndex + 1) {
+        this.setState({historyIndex: this.state.historyIndex + 1});
+      }
+      index = this.state.historyIndex;
+    } else {
+      index = 0;
+      this.searchingHistory = true;
+      setTimeout(() => {
+        this.searchingHistory = false;
+        this.setState({historyIndex: 0});
+      }, 5000);
+    }
+
+    sendToAddon({
+      action: 'track-added-from-history',
+      index: index
+    });
+  }
+
+  nextTrack () {
+    if (this.props.queue.length < 2) return;
+    sendToAddon({
+      action: 'track-expedited',
+      index: 1,
+      moveIndexZero: true
+    });
+  }
+
+  handleSpace() {
+    window.AppData.set({playing: !window.AppData.playing});
+    if (this.audio) {
+      if (this.audio.playing) this.audio.pause();
+      else this.audio.play();
+    }
+  }
+
+  render () {
+    const visualEl = this.props.queue[0].error ? (<ErrorView {...this.props} />) :
+          this.props.queue[0].player === 'audio' ?
+          (<div id='audio-container' ref='audio-container' onClick={this.handleVideoClick.bind(this)}/>) :
+          (<ReactPlayer {...this.props} url={this.props.queue[0].url} ref='player'
+                        onProgress={this.onProgress.bind(this)}
+                        onReady={this.onLoaded.bind(this)}
+                        onDuration={(d) => window.AppData.set({duration: d})}
+                        youtubeConfig={this.ytConfig} progressFrequency={100}
+                        onError={this.onError.bind(this)}
+                        onEnded={this.onEnded.bind(this)}
+           />);
+
+    const queuePanel = this.state.showQueue ? (<Queues className={cn({hidden: !this.state.showQueue})}
+                                               {...this.props} closeQueueMenu={this.closeQueueMenu.bind(this)}/>)
+                                            : null;
+
+    const generalControls = this.state.hovered ? <GeneralControls {...this.props} hovered={this.state.hovered}
+                                                 openQueueMenu={this.openQueueMenu.bind(this)} />
+                                               : null;
+
+    const prevTrackBtn = (<div className={cn('prev-wrapper', {hidden: !this.state.hovered})}>
+                            <a onClick={this.prevTrack.bind(this)}
+                               className='prev' data-tip data-for='prev' />
+                            <ReactTooltip id='prev' effect='solid' place='right'>{this.props.strings.ttPrev}</ReactTooltip>
+                          </div>);
+    const nextTrackBtn = (<div className={cn('next-wrapper', {hidden: !this.state.hovered || (this.props.queue.length < 2)})}>
+                            <a onClick={this.nextTrack.bind(this)}
+                               className='next' data-tip data-for='next' />
+                            <ReactTooltip id='next' effect='solid' place='right'>{this.props.strings.ttNext}</ReactTooltip>
+                          </div>);
+
+    // const keyHandlers = (<div>
+    //                      <KeyHandler keyEventName={KeyHandler.KEYPRESS} keyValue="space" onKeyHandle={this.handleSpace.bind(this)} />
+    //                      </div>);
+
+    return (<div className='video-wrapper'
+                 onMouseEnter={this.enterPlayer.bind(this)}
+                 onMouseLeave={this.leavePlayer.bind(this)}
+                 onClick={this.handleVideoClick.bind(this)}>
+              {this.props.exited ? <ReplayView {...this.props} exited={this.props.exited} /> : null}
+              {prevTrackBtn}
+              {nextTrackBtn}
+              {generalControls}
+              <PlayerControls {...this.props} hovered={this.state.hovered} progress={this.state.progress}
+                              audio={this.audio} time={this.state.time} setTime={this.setTime.bind(this)}
+                              closeQueueMenu={this.closeQueueMenu.bind(this)} />
+              {queuePanel}
+              {visualEl}
+            </div>);
+  }
+
+  attachKeyboardShortcuts() {
+    // seek forward
+    keyboardJS.bind('right', ev => {
+      if (this.refs['player']) this.refs['player'].seekTo((this.props.currentTime + 5) / window.AppData.duration);
+      if (this.audio) this.audio.time = this.props.currentTime + 5;
+      window.AppData.set({currentTime: this.props.currentTime + 5});
+    });
+
+    // seek backward
+    keyboardJS.bind('left', ev => {
+      if (this.refs['player']) this.refs['player'].seekTo((this.props.currentTime - 5) / window.AppData.duration);
+      if (this.audio) this.audio.time = this.props.currentTime - 5;
+      window.AppData.set({currentTime: this.props.currentTime - 5});
+    });
+
+    // next track
+    keyboardJS.bind('>', ev => {
+      this.nextTrack();
+    });
+
+    // previous track
+    keyboardJS.bind('<', ev => {
+      this.prevTrack();
+    });
+
+    // play/pause toggle
+    keyboardJS.bind('space', ev => {
+      if (this.audio) {
+        if (window.AppData.playing) this.audio.pause();
+        else this.audio.play();
+      }
+      window.AppData.set({playing: !window.AppData.playing});
+    });
   }
 }
-
-Player.propTypes = {
-  src: React.PropTypes.string,
-  muted: React.PropTypes.bool,
-  exited: React.PropTypes.bool,
-  playing: React.PropTypes.bool,
-  volume: React.PropTypes.number,
-  player: React.PropTypes.string,
-  visual: React.PropTypes.string,
-  currentTime: React.PropTypes.number
-};
-
-module.exports = Player;
